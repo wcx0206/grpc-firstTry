@@ -2,42 +2,48 @@ package main
 
 import (
 	"context"
+	"flag"
+	"fmt"
+	pb "grpc-demo/rpc/hello"
 	"log"
 	"net"
-
-	pb "github.com/wcx0206/grpc-firstTry/rpc/hello" // 修改为正确的导入路径
 
 	"google.golang.org/grpc"
 )
 
+var (
+	port = flag.Int("port", 50051, "服务器端口")
+)
+
 // 定义服务结构体
 type server struct {
-	pb.UnimplementedGreeterServer
+	pb.UnimplementedGreeterServer // 保持实现接口的兼容性
 }
 
 // 实现 SayHello 方法
-func (s *server) SayHello(ctx context.Context, req *pb.HelloRequest) (*pb.HelloReply, error) {
+func (s *server) SayHello(ctx context.Context, in *pb.HelloRequest) (*pb.HelloReply, error) {
+	log.Printf("收到请求: %v", in.GetName())
 	return &pb.HelloReply{
-		Message: "Hello " + req.GetName(),
+		Message: "Hello " + in.GetName(),
 	}, nil
 }
 
 func main() {
-	// 1. 创建 TCP 监听器
-	lis, err := net.Listen("tcp", ":50051")
+	// 解析命令行参数
+	flag.Parse()
+
+	// 监听端口
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
-		log.Fatalf("failed to listen: %v", err)
+		log.Fatalf("监听失败: %v", err)
 	}
 
-	// 2. 创建 gRPC 服务器
+	// 创建 gRPC 服务
 	s := grpc.NewServer()
-
-	// 3. 注册服务
 	pb.RegisterGreeterServer(s, &server{})
 
-	// 4. 启动服务
-	log.Printf("server listening at %v", lis.Addr())
+	log.Printf("服务器监听端口: %v", lis.Addr())
 	if err := s.Serve(lis); err != nil {
-		log.Fatalf("failed to serve: %v", err)
+		log.Fatalf("服务启动失败: %v", err)
 	}
 }
